@@ -1,0 +1,29 @@
+[package]
+name = "git-seek"
+version = "0.1.0"
+edition = "2024"
+description = "Query Git repositories using Trustfall's GraphQL-like syntax"
+license = "BSD-3-Clause"
+repository = "https://github.com/starfy84/git-seek"
+homepage = "https://github.com/starfy84/git-seek"
+keywords = ["git", "query", "graphql", "trustfall"]
+categories = ["command-line-utilities", "development-tools"]
+
+[[bin]]
+name = "git-seek"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1.0.100"
+atty = "0.2.14"
+clap = { version = "4.5.53", features = ["derive"] }
+comfy-table = "7.1.1"
+git2 = "0.20.3"
+serde_json = "1.0.147"
+trustfall = "0.8"
+trustfall_git_adapter = { version = "0.1.0", path = "../trustfall_git_adapter" }
+
+[dev-dependencies]
+assert_cmd = "2.0"
+predicates = "3.0"
+tempfile = "3.8"

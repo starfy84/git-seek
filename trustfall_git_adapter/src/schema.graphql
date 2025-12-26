@@ -1,0 +1,29 @@
+schema {
+  query: RootSchemaQuery
+}
+directive @filter(op: String!, value: [String!]) on FIELD | INLINE_FRAGMENT
+directive @tag(name: String) on FIELD
+directive @output(name: String) on FIELD
+directive @optional on FIELD
+directive @recurse(depth: Int!) on FIELD
+directive @fold on FIELD
+
+type RootSchemaQuery {
+    repository: Repository
+}
+
+type Repository {
+    name: String!
+    commits: [Commit!]!
+    branches: [Branch!]!
+}
+
+type Commit {
+    hash: String!
+    message: String!
+}
+
+type Branch {
+    name: String!
+    commit: Commit!
+}

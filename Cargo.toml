@@ -1,0 +1,3 @@
+[workspace]
+resolver = "3"
+members = [ "cli","trustfall_git_adapter"]
