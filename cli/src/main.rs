@@ -85,7 +85,7 @@ enum OutputFormat {
     Raw,
 }
 
-use std::io::{self, Read};
+use std::io::{self, Read, IsTerminal};
 
 impl Args {
     pub fn load_query(&self) -> anyhow::Result<String> {
@@ -99,7 +99,7 @@ impl Args {
 
         // Fallback to stdin
         let mut input = String::new();
-        if atty::is(atty::Stream::Stdin) {
+        if io::stdin().is_terminal() {
             anyhow::bail!("No query provided. Use --query, --file, or pipe via stdin.");
         }
 
