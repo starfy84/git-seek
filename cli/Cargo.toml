@@ -13,11 +13,14 @@ categories = ["command-line-utilities", "development-tools"]
 name = "git-seek"
 path = "src/main.rs"
 
+[dependencies.git2]
+version = "0.20"
+default-features = false
+
 [dependencies]
 anyhow = "1.0.100"
 clap = { version = "4.5.53", features = ["derive"] }
 comfy-table = "7.1.1"
-git2 = "0.20.3"
 serde_json = "1.0.147"
 trustfall = "0.8"
 trustfall_git_adapter = { version = "0.1.0", path = "../trustfall_git_adapter" }

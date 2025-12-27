@@ -9,8 +9,11 @@ homepage = "https://github.com/starfy84/git-seek"
 keywords = ["git", "trustfall", "adapter", "query"]
 categories = ["api-bindings", "development-tools"]
 
+[dependencies.git2]
+version = "0.20"
+default-features = false
+
 [dependencies]
-git2 = "0.20.3"
 trustfall = "0.8.1"
 trustfall_core = "0.8.1"
 trustfall_derive = "0.3.1"
