@@ -35,7 +35,7 @@ git-seek --query '{repository {name @output}}'
 git-seek --query '{repository {branches {name @output}}}' --format json
 
 # Load query from file
-git-seek --file query.trustfall --format table
+git-seek --file query.graphql --format table
 
 # Use variables in queries
 git-seek --query '{repository {name @output}}' --var repo_name=my-repo

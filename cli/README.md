@@ -44,7 +44,7 @@ You can provide queries in three ways:
 
 2. **From file** (using `--file` or `-f`):
    ```bash
-   git-seek --file my-query.trustfall
+   git-seek --file my-query.graphql
    ```
 
 3. **Via stdin** (pipe input):
