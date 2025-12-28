@@ -109,7 +109,8 @@ type Repository {
 
 type Commit {
     hash: String!
-    message: String!
+    message: String
+    author: String
 }
 
 type Branch {
