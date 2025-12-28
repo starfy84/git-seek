@@ -5,7 +5,7 @@ pub struct Repository {
 
 impl Repository {
     pub fn new(name: String) -> Self {
-        Repository { name}
+        Repository { name }
     }
 
     pub fn name(&self) -> &str {

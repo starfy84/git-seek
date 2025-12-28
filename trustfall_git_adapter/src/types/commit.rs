@@ -13,5 +13,4 @@ impl<'a> Commit<'a> {
     pub fn inner(&self) -> &Git2Commit<'a> {
         &self.commit
     }
-
 }

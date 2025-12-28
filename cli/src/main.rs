@@ -1,25 +1,23 @@
-use std::{collections::BTreeMap, path::PathBuf, sync::Arc};
-use git2::Repository;
-use trustfall_git_adapter::GitAdapter;
 use clap::{ArgGroup, Parser};
-use serde_json::{Map, Value};
 use comfy_table::{Table, presets::UTF8_FULL};
+use git2::Repository;
+use serde_json::{Map, Value};
+use std::{collections::BTreeMap, path::PathBuf, sync::Arc};
+use trustfall_git_adapter::GitAdapter;
 
 fn convert_trustfall_value_to_json(value: &trustfall::FieldValue) -> Value {
     match value {
         trustfall::FieldValue::Null => Value::Null,
         trustfall::FieldValue::Int64(n) => Value::Number((*n).into()),
         trustfall::FieldValue::Uint64(n) => Value::Number((*n).into()),
-        trustfall::FieldValue::Float64(f) => {
-            serde_json::Number::from_f64(*f)
-                .map(Value::Number)
-                .unwrap_or(Value::Null)
-        },
+        trustfall::FieldValue::Float64(f) => serde_json::Number::from_f64(*f)
+            .map(Value::Number)
+            .unwrap_or(Value::Null),
         trustfall::FieldValue::String(s) => Value::String(s.to_string()),
         trustfall::FieldValue::Boolean(b) => Value::Bool(*b),
         trustfall::FieldValue::List(items) => {
             Value::Array(items.iter().map(convert_trustfall_value_to_json).collect())
-        },
+        }
         _ => Value::String(format!("{:?}", value)), // fallback for other types
     }
 }
@@ -33,11 +31,15 @@ fn format_trustfall_value_for_table(value: &trustfall::FieldValue) -> String {
         trustfall::FieldValue::String(s) => s.to_string(),
         trustfall::FieldValue::Boolean(b) => b.to_string(),
         trustfall::FieldValue::List(items) => {
-            format!("[{}]", items.iter()
-                .map(format_trustfall_value_for_table)
-                .collect::<Vec<_>>()
-                .join(", "))
-        },
+            format!(
+                "[{}]",
+                items
+                    .iter()
+                    .map(format_trustfall_value_for_table)
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+        }
         _ => format!("{:?}", value), // fallback for other types
     }
 }
@@ -85,7 +87,7 @@ enum OutputFormat {
     Raw,
 }
 
-use std::io::{self, Read, IsTerminal};
+use std::io::{self, IsTerminal, Read};
 
 impl Args {
     pub fn load_query(&self) -> anyhow::Result<String> {
@@ -114,43 +116,45 @@ fn main() -> anyhow::Result<()> {
 
     let args = Args::parse();
 
-    let variables = args.vars.iter().filter_map(|var_entry| {
-        var_entry.split_once("=")
-    }).collect::<BTreeMap<_, _>>();
+    let variables = args
+        .vars
+        .iter()
+        .filter_map(|var_entry| var_entry.split_once("="))
+        .collect::<BTreeMap<_, _>>();
 
     let query = args.load_query()?;
 
-    let result = trustfall::execute_query(adapter.schema(), Arc::new(&adapter), query.as_str(), variables)?;
+    let result = trustfall::execute_query(
+        adapter.schema(),
+        Arc::new(&adapter),
+        query.as_str(),
+        variables,
+    )?;
 
     match args.format {
         OutputFormat::Json => {
-            let results: Vec<Value> = result
-                .map(|row| convert_result_row_to_json(&row))
-                .collect();
+            let results: Vec<Value> = result.map(|row| convert_result_row_to_json(&row)).collect();
             println!("{}", serde_json::to_string_pretty(&results)?);
-        },
+        }
         OutputFormat::Table => {
             let rows: Vec<_> = result.collect();
             if rows.is_empty() {
                 return Ok(());
             }
-            
+
             let columns: Vec<String> = rows[0].keys().map(|k| k.to_string()).collect();
-            
+
             let mut table = Table::new();
-            table.load_preset(UTF8_FULL)
-                 .set_header(&columns);
-            
+            table.load_preset(UTF8_FULL).set_header(&columns);
+
             for row in &rows {
-                let row_values = columns.iter().map(|col| {
-                    match row.get(col.as_str()) {
-                        Some(value) => format_trustfall_value_for_table(value),
-                        None => String::new(),
-                    }
+                let row_values = columns.iter().map(|col| match row.get(col.as_str()) {
+                    Some(value) => format_trustfall_value_for_table(value),
+                    None => String::new(),
                 });
                 table.add_row(row_values);
             }
-            
+
             println!("{table}");
         }
         OutputFormat::Raw => {
@@ -217,11 +221,14 @@ mod tests {
 
     #[test]
     fn test_convert_trustfall_value_to_json_list() {
-        let value = trustfall::FieldValue::List(vec![
-            trustfall::FieldValue::String("a".into()),
-            trustfall::FieldValue::Int64(1),
-            trustfall::FieldValue::Boolean(true),
-        ].into());
+        let value = trustfall::FieldValue::List(
+            vec![
+                trustfall::FieldValue::String("a".into()),
+                trustfall::FieldValue::Int64(1),
+                trustfall::FieldValue::Boolean(true),
+            ]
+            .into(),
+        );
         let result = convert_trustfall_value_to_json(&value);
         assert_eq!(result, json!(["a", 1, true]));
     }
@@ -262,10 +269,13 @@ mod tests {
 
     #[test]
     fn test_format_trustfall_value_for_table_list() {
-        let value = trustfall::FieldValue::List(vec![
-            trustfall::FieldValue::String("a".into()),
-            trustfall::FieldValue::Int64(1),
-        ].into());
+        let value = trustfall::FieldValue::List(
+            vec![
+                trustfall::FieldValue::String("a".into()),
+                trustfall::FieldValue::Int64(1),
+            ]
+            .into(),
+        );
         let result = format_trustfall_value_for_table(&value);
         assert_eq!(result, "[a, 1]");
     }
@@ -280,7 +290,10 @@ mod tests {
     #[test]
     fn test_convert_result_row_to_json() {
         let mut row = BTreeMap::new();
-        row.insert(Arc::from("name"), trustfall::FieldValue::String("test-repo".into()));
+        row.insert(
+            Arc::from("name"),
+            trustfall::FieldValue::String("test-repo".into()),
+        );
         row.insert(Arc::from("count"), trustfall::FieldValue::Int64(42));
         row.insert(Arc::from("active"), trustfall::FieldValue::Boolean(true));
 

@@ -8,8 +8,8 @@ pub struct Branch<'a> {
 
 impl<'a> Branch<'a> {
     pub fn new(branch: Git2Branch<'a>) -> Self {
-        Branch { 
-            branch: Rc::new(branch)
+        Branch {
+            branch: Rc::new(branch),
         }
     }
 
@@ -20,12 +20,8 @@ impl<'a> Branch<'a> {
 
 impl<'a> std::fmt::Debug for Branch<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let name = self.branch.name()
-            .unwrap_or(None)
-            .unwrap_or("<unnamed>");
+        let name = self.branch.name().unwrap_or(None).unwrap_or("<unnamed>");
 
-        f.debug_struct("Branch")
-            .field("name", &name)
-            .finish()
+        f.debug_struct("Branch").field("name", &name).finish()
     }
 }
