@@ -47,6 +47,10 @@ pub(super) fn resolve_commit_property<'a, V: AsVertex<Vertex<'a>> + 'a>(
             contexts,
             accessor_property!(as_commit, inner, { inner.message().into() }),
         ),
+        "author" => resolve_property_with(
+            contexts,
+            accessor_property!(as_commit, inner, { inner.author().name().into() }),
+        ),
         _ => unreachable!("resolve_commit_property {property_name}"),
     }
 }

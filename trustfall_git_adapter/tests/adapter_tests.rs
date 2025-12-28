@@ -35,6 +35,57 @@ fn create_test_repo() -> (TempDir, Repository) {
     (temp_dir, repo)
 }
 
+fn create_test_repo_with_multiple_commits() -> (TempDir, Repository) {
+    let temp_dir = TempDir::new().unwrap();
+    let repo = Repository::init(temp_dir.path()).unwrap();
+
+    {
+        let mut config = repo.config().unwrap();
+        config.set_str("user.name", "Test User").unwrap();
+        config.set_str("user.email", "test@example.com").unwrap();
+    }
+
+    let signature = git2::Signature::now("Test User", "test@example.com").unwrap();
+    let author_signature = git2::Signature::now("Author User", "author@example.com").unwrap();
+    
+    // Create initial commit
+    let first_commit = {
+        let tree_id = {
+            let mut index = repo.index().unwrap();
+            index.write_tree().unwrap()
+        };
+        let tree = repo.find_tree(tree_id).unwrap();
+        repo.commit(
+            Some("HEAD"),
+            &author_signature,
+            &signature,
+            "Initial commit",
+            &tree,
+            &[],
+        ).unwrap()
+    };
+
+    // Create a second commit
+    {
+        let tree_id = {
+            let mut index = repo.index().unwrap();
+            index.write_tree().unwrap()
+        };
+        let tree = repo.find_tree(tree_id).unwrap();
+        let first_commit_obj = repo.find_commit(first_commit).unwrap();
+        repo.commit(
+            Some("HEAD"),
+            &author_signature,
+            &signature,
+            "Second commit with more details",
+            &tree,
+            &[&first_commit_obj],
+        ).unwrap();
+    }
+
+    (temp_dir, repo)
+}
+
 #[test]
 fn test_adapter_creation() {
     let (_temp_dir, repo) = create_test_repo();
@@ -104,3 +155,197 @@ fn test_query_repository_branches() {
 
     assert!(branch_names.contains(&"main") || branch_names.contains(&"master"));
 }
+
+#[test]
+fn test_query_repository_commits() {
+    let (_temp_dir, repo) = create_test_repo_with_multiple_commits();
+    let adapter = GitAdapter::new(&repo);
+
+    let query = r#"
+    {
+        repository {
+            commits {
+                hash @output
+            }
+        }
+    }
+    "#;
+
+    let variables: std::collections::BTreeMap<&str, &str> = std::collections::BTreeMap::new();
+    let results: Vec<_> =
+        trustfall::execute_query(adapter.schema(), Arc::new(&adapter), query, variables)
+            .unwrap()
+            .collect();
+
+    // Should have at least 2 commits (initial + second)
+    assert!(results.len() >= 2);
+
+    // Verify all results have hash field
+    for result in &results {
+        assert!(result.contains_key("hash"));
+        if let Some(trustfall::FieldValue::String(hash)) = result.get("hash") {
+            // Git hashes should be 40 characters
+            assert_eq!(hash.len(), 40);
+            // Should only contain hexadecimal characters
+            assert!(hash.chars().all(|c| c.is_ascii_hexdigit()));
+        } else {
+            panic!("Hash field should be a string");
+        }
+    }
+}
+
+#[test]
+fn test_query_commit_properties() {
+    let (_temp_dir, repo) = create_test_repo_with_multiple_commits();
+    let adapter = GitAdapter::new(&repo);
+
+    let query = r#"
+    {
+        repository {
+            commits {
+                hash @output
+                message @output
+                author @output
+            }
+        }
+    }
+    "#;
+
+    let variables: std::collections::BTreeMap<&str, &str> = std::collections::BTreeMap::new();
+    let results: Vec<_> =
+        trustfall::execute_query(adapter.schema(), Arc::new(&adapter), query, variables)
+            .unwrap()
+            .collect();
+
+    assert!(!results.is_empty());
+
+    for result in &results {
+        // Verify hash field
+        assert!(result.contains_key("hash"));
+        if let Some(trustfall::FieldValue::String(hash)) = result.get("hash") {
+            assert_eq!(hash.len(), 40);
+            assert!(hash.chars().all(|c| c.is_ascii_hexdigit()));
+        } else {
+            panic!("Hash field should be a string");
+        }
+
+        // Verify message field
+        assert!(result.contains_key("message"));
+        if let Some(trustfall::FieldValue::String(message)) = result.get("message") {
+            assert!(!message.is_empty());
+        } else {
+            panic!("Message field should be a string");
+        }
+
+        // Verify author field
+        assert!(result.contains_key("author"));
+        if let Some(trustfall::FieldValue::String(author)) = result.get("author") {
+            assert!(!author.is_empty());
+        } else {
+            panic!("Author field should be a string");
+        }
+    }
+}
+
+#[test]
+fn test_query_specific_commit_content() {
+    let (_temp_dir, repo) = create_test_repo_with_multiple_commits();
+    let adapter = GitAdapter::new(&repo);
+
+    let query = r#"
+    {
+        repository {
+            commits {
+                message @output
+                author @output
+            }
+        }
+    }
+    "#;
+
+    let variables: std::collections::BTreeMap<&str, &str> = std::collections::BTreeMap::new();
+    let results: Vec<_> =
+        trustfall::execute_query(adapter.schema(), Arc::new(&adapter), query, variables)
+            .unwrap()
+            .collect();
+
+    assert!(results.len() >= 2);
+
+    // Find our specific commit messages
+    let messages: Vec<String> = results
+        .iter()
+        .filter_map(|row| {
+            if let Some(trustfall::FieldValue::String(msg)) = row.get("message") {
+                Some(msg.to_string())
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    assert!(messages.contains(&"Initial commit".to_string()));
+    assert!(messages.contains(&"Second commit with more details".to_string()));
+
+    // Verify author information
+    let authors: Vec<String> = results
+        .iter()
+        .filter_map(|row| {
+            if let Some(trustfall::FieldValue::String(author)) = row.get("author") {
+                Some(author.to_string())
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    assert!(authors.contains(&"Author User".to_string()));
+}
+
+#[test]
+fn test_query_branch_commit_relationship() {
+    let (_temp_dir, repo) = create_test_repo_with_multiple_commits();
+    let adapter = GitAdapter::new(&repo);
+
+    let query = r#"
+    {
+        repository {
+            branches {
+                name @output
+                commit {
+                    hash @output
+                    message @output
+                }
+            }
+        }
+    }
+    "#;
+
+    let variables: std::collections::BTreeMap<&str, &str> = std::collections::BTreeMap::new();
+    let results: Vec<_> =
+        trustfall::execute_query(adapter.schema(), Arc::new(&adapter), query, variables)
+            .unwrap()
+            .collect();
+
+    assert!(!results.is_empty());
+
+    for result in &results {
+        // Verify branch has a name
+        assert!(result.contains_key("name"));
+        
+        // Verify the commit relationship
+        assert!(result.contains_key("hash"));
+        assert!(result.contains_key("message"));
+        
+        if let Some(trustfall::FieldValue::String(hash)) = result.get("hash") {
+            assert_eq!(hash.len(), 40);
+            assert!(hash.chars().all(|c| c.is_ascii_hexdigit()));
+        }
+
+        if let Some(trustfall::FieldValue::String(message)) = result.get("message") {
+            // Should point to the latest commit (second commit)
+            assert_eq!(message.as_ref(), "Second commit with more details");
+        }
+    }
+}
+
+
