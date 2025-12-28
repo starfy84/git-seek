@@ -1,3 +1,15 @@
+# [1.2.0](https://github.com/starfy84/git-seek/compare/v1.1.0...v1.2.0) (2025-12-28)
+
+
+### Bug Fixes
+
+* make message field optional ([254ca76](https://github.com/starfy84/git-seek/commit/254ca7690f61a56d0950be8d4f4a44b31b76059f))
+
+
+### Features
+
+* expose author field ([a648bcc](https://github.com/starfy84/git-seek/commit/a648bcc251c928dad85965e85c97c92d0881c62c))
+
 # [1.1.0](https://github.com/starfy84/git-seek/compare/v1.0.0...v1.1.0) (2025-12-28)
 
 
