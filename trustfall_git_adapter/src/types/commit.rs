@@ -1,20 +1,17 @@
+use git2::Commit as Git2Commit;
+
 #[derive(Debug, Clone)]
-pub struct Commit {
-    hash: String,
-    message: Option<String>,
+pub struct Commit<'a> {
+    commit: Git2Commit<'a>,
 }
 
-impl Commit {
-    pub fn new(hash: String, message: Option<String>) -> Self {
-        Commit { hash, message }
+impl<'a> Commit<'a> {
+    pub fn new(commit: Git2Commit<'a>) -> Self {
+        Self { commit }
     }
 
-    pub fn hash(&self) -> &str {
-        &self.hash
-    }
-
-    pub fn message(&self) -> Option<&str> {
-        self.message.as_deref()
+    pub fn inner(&self) -> &Git2Commit<'a> {
+        &self.commit
     }
 
 }

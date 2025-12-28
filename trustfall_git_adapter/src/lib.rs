@@ -28,7 +28,7 @@ impl<'a> GitAdapter<'a> {
 }
 
 impl<'a> Adapter<'a> for &'a GitAdapter<'a> {
-    type Vertex = Vertex;
+    type Vertex = Vertex<'a>;
 
     fn resolve_starting_vertices(
         &self,
