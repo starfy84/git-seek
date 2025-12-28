@@ -13,7 +13,7 @@ cargo install git-seek
 ### From source
 
 ```bash
-git clone https://github.com/starfy84/git-seek
+git clone git@github.com:starfy84/git-seek.git
 cd git-seek
 cargo build --release -p git-seek
 ```
