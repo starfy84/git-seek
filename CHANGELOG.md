@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/starfy84/git-seek/compare/v1.2.0...v1.3.0) (2025-12-30)
+
+
+### Features
+
+* allow for limiting commit result ([1266f5f](https://github.com/starfy84/git-seek/commit/1266f5fae3a6c1af23b3eacb84895acd351b5797))
+
 # [1.2.0](https://github.com/starfy84/git-seek/compare/v1.1.0...v1.2.0) (2025-12-28)
 
 
