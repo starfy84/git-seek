@@ -47,7 +47,7 @@ fn create_test_repo_with_multiple_commits() -> (TempDir, Repository) {
 
     let signature = git2::Signature::now("Test User", "test@example.com").unwrap();
     let author_signature = git2::Signature::now("Author User", "author@example.com").unwrap();
-    
+
     // Create initial commit
     let first_commit = {
         let tree_id = {
@@ -62,7 +62,8 @@ fn create_test_repo_with_multiple_commits() -> (TempDir, Repository) {
             "Initial commit",
             &tree,
             &[],
-        ).unwrap()
+        )
+        .unwrap()
     };
 
     // Create a second commit
@@ -80,7 +81,8 @@ fn create_test_repo_with_multiple_commits() -> (TempDir, Repository) {
             "Second commit with more details",
             &tree,
             &[&first_commit_obj],
-        ).unwrap();
+        )
+        .unwrap();
     }
 
     (temp_dir, repo)
@@ -331,11 +333,11 @@ fn test_query_branch_commit_relationship() {
     for result in &results {
         // Verify branch has a name
         assert!(result.contains_key("name"));
-        
+
         // Verify the commit relationship
         assert!(result.contains_key("hash"));
         assert!(result.contains_key("message"));
-        
+
         if let Some(trustfall::FieldValue::String(hash)) = result.get("hash") {
             assert_eq!(hash.len(), 40);
             assert!(hash.chars().all(|c| c.is_ascii_hexdigit()));
@@ -348,4 +350,142 @@ fn test_query_branch_commit_relationship() {
     }
 }
 
+#[test]
+fn test_query_commits_with_limit() {
+    let (_temp_dir, repo) = create_test_repo_with_multiple_commits();
+    let adapter = GitAdapter::new(&repo);
 
+    // Test with limit of 1
+    let query = r#"
+    {
+        repository {
+            commits(limit: 1) {
+                hash @output
+                message @output
+            }
+        }
+    }
+    "#;
+
+    let variables: std::collections::BTreeMap<&str, &str> = std::collections::BTreeMap::new();
+    let results: Vec<_> =
+        trustfall::execute_query(adapter.schema(), Arc::new(&adapter), query, variables)
+            .unwrap()
+            .collect();
+
+    // Should have exactly 1 commit due to limit
+    assert_eq!(results.len(), 1);
+
+    // Verify the result has the expected fields
+    let result = &results[0];
+    assert!(result.contains_key("hash"));
+    assert!(result.contains_key("message"));
+
+    if let Some(trustfall::FieldValue::String(hash)) = result.get("hash") {
+        assert_eq!(hash.len(), 40);
+        assert!(hash.chars().all(|c| c.is_ascii_hexdigit()));
+    } else {
+        panic!("Hash field should be a string");
+    }
+
+    if let Some(trustfall::FieldValue::String(message)) = result.get("message") {
+        // Should be the latest commit (HEAD)
+        assert_eq!(message.as_ref(), "Second commit with more details");
+    } else {
+        panic!("Message field should be a string");
+    }
+}
+
+#[test]
+fn test_query_commits_with_different_limits() {
+    let (_temp_dir, repo) = create_test_repo_with_multiple_commits();
+    let adapter = GitAdapter::new(&repo);
+
+    // Test with no limit (should get all commits)
+    let query_no_limit = r#"
+    {
+        repository {
+            commits {
+                hash @output
+            }
+        }
+    }
+    "#;
+
+    let variables: std::collections::BTreeMap<&str, &str> = std::collections::BTreeMap::new();
+    let results_no_limit: Vec<_> = trustfall::execute_query(
+        adapter.schema(),
+        Arc::new(&adapter),
+        query_no_limit,
+        variables.clone(),
+    )
+    .unwrap()
+    .collect();
+
+    // Test with limit of 1
+    let query_limit_1 = r#"
+    {
+        repository {
+            commits(limit: 1) {
+                hash @output
+            }
+        }
+    }
+    "#;
+
+    let results_limit_1: Vec<_> = trustfall::execute_query(
+        adapter.schema(),
+        Arc::new(&adapter),
+        query_limit_1,
+        variables.clone(),
+    )
+    .unwrap()
+    .collect();
+
+    // Test with limit of 5 (should return all available commits since we only have 2)
+    let query_limit_5 = r#"
+    {
+        repository {
+            commits(limit: 5) {
+                hash @output
+            }
+        }
+    }
+    "#;
+
+    let results_limit_5: Vec<_> = trustfall::execute_query(
+        adapter.schema(),
+        Arc::new(&adapter),
+        query_limit_5,
+        variables,
+    )
+    .unwrap()
+    .collect();
+
+    // Assertions
+    assert!(
+        results_no_limit.len() >= 2,
+        "Should have at least 2 commits without limit"
+    );
+    assert_eq!(
+        results_limit_1.len(),
+        1,
+        "Should have exactly 1 commit with limit 1"
+    );
+    assert_eq!(
+        results_limit_5.len(),
+        results_no_limit.len(),
+        "Limit 5 should return all available commits"
+    );
+
+    // Verify that limit 1 returns the same first commit as no limit
+    if let (Some(first_no_limit), Some(first_limit_1)) =
+        (results_no_limit.first(), results_limit_1.first())
+    {
+        assert_eq!(
+            first_no_limit.get("hash"),
+            first_limit_1.get("hash"),
+            "Limited query should return the same first commit"
+        );
+    }
+}

@@ -81,6 +81,19 @@ git-seek --query '{repository {name @output}}' --var repo_name=my-repo
 }
 ```
 
+**Recent commits (limited):**
+```trustfall
+{
+  repository {
+    commits(limit: 10) {
+      hash @output
+      message @output
+      author @output
+    }
+  }
+}
+```
+
 **Branch with latest commit:**
 ```trustfall
 {
@@ -103,7 +116,7 @@ The Trustfall schema defines the structure for querying Git repositories:
 ```graphql
 type Repository {
     name: String!
-    commits: [Commit!]!
+    commits(limit: Int): [Commit!]!
     branches: [Branch!]!
 }
 
