@@ -91,6 +91,19 @@ let query = r#"{
 }"#;
 ```
 
+**Limited commits (e.g., last 10):**
+```rust
+let query = r#"{
+  repository {
+    commits(limit: 10) {
+      hash @output
+      message @output
+      author @output
+    }
+  }
+}"#;
+```
+
 **Branches with their latest commits:**
 ```rust
 let query = r#"{
@@ -121,7 +134,7 @@ type RootSchemaQuery {
 
 type Repository {
     name: String!
-    commits: [Commit!]!
+    commits(limit: Int): [Commit!]!
     branches: [Branch!]!
 }
 

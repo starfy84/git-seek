@@ -14,7 +14,7 @@ type RootSchemaQuery {
 
 type Repository {
     name: String!
-    commits: [Commit!]!
+    commits(limit: Int): [Commit!]!
     branches: [Branch!]!
 }
 

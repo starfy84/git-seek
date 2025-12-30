@@ -88,7 +88,7 @@ impl<'a> Adapter<'a> for &'a GitAdapter<'a> {
         contexts: trustfall::provider::ContextIterator<'a, V>,
         type_name: &std::sync::Arc<str>,
         edge_name: &std::sync::Arc<str>,
-        _parameters: &trustfall_core::ir::EdgeParameters,
+        parameters: &trustfall_core::ir::EdgeParameters,
         _resolve_info: &trustfall::provider::ResolveEdgeInfo,
     ) -> trustfall::provider::ContextOutcomeIterator<
         'a,
@@ -96,7 +96,7 @@ impl<'a> Adapter<'a> for &'a GitAdapter<'a> {
         trustfall::provider::VertexIterator<'a, Self::Vertex>,
     > {
         match type_name.as_ref() {
-            "Repository" => edges::resolve_repository_edge(self, contexts, edge_name),
+            "Repository" => edges::resolve_repository_edge(self, contexts, edge_name, parameters),
             "Branch" => edges::resolve_branch_edge(self, contexts, edge_name),
             _ => unreachable!("resolve_neighbors {type_name}"),
         }

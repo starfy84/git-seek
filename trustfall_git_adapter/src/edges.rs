@@ -8,26 +8,33 @@ pub(super) fn resolve_repository_edge<'a, V: AsVertex<Vertex<'a>> + 'a>(
     adapter: &'a GitAdapter<'a>,
     contexts: ContextIterator<'a, V>,
     edge_name: &str,
+    parameters: &trustfall_core::ir::EdgeParameters,
 ) -> ContextOutcomeIterator<'a, V, VertexIterator<'a, Vertex<'a>>> {
     match edge_name {
-        "commits" => resolve_neighbors_with(contexts, |_| {
-            match adapter.git2_repo.revwalk().map(|mut revwalk| {
-                revwalk.push_head().expect("Could not push HEAD");
+        "commits" => {
+            let limit = parameters.get("limit").map(|v| v.as_usize()).flatten();
 
-                revwalk.filter_map(|rev| {
-                    rev.ok().and_then(|oid| {
-                        adapter
-                            .git2_repo
-                            .find_commit(oid)
-                            .ok()
-                            .map(|commit| Vertex::Commit(types::Commit::new(commit)))
-                    })
-                })
-            }) {
-                Ok(commits) => Box::new(commits),
-                Err(_) => Box::new(std::iter::empty()),
-            }
-        }),
+            resolve_neighbors_with(contexts, move |_| {
+                match adapter.git2_repo.revwalk().map(|mut revwalk| {
+                    revwalk.push_head().expect("Could not push HEAD");
+
+                    revwalk
+                        .filter_map(|rev| {
+                            rev.ok().and_then(|oid| {
+                                adapter
+                                    .git2_repo
+                                    .find_commit(oid)
+                                    .ok()
+                                    .map(|commit| Vertex::Commit(types::Commit::new(commit)))
+                            })
+                        })
+                        .take(limit.unwrap_or(usize::MAX))
+                }) {
+                    Ok(commits) => Box::new(commits),
+                    Err(_) => Box::new(std::iter::empty()),
+                }
+            })
+        }
         "branches" => resolve_neighbors_with(contexts, |_| {
             let filter = git2::BranchType::Local;
             match adapter.git2_repo.branches(Some(filter)) {

@@ -117,6 +117,21 @@ git-seek --query '{
 }' --format table
 ```
 
+### Limited Commit History
+
+```bash
+# Get only the last 5 commits
+git-seek --query '{
+  repository {
+    commits(limit: 5) {
+      hash @output
+      message @output
+      author @output
+    }
+  }
+}' --format table
+```
+
 ## Error Handling
 
 The tool provides helpful error messages:
