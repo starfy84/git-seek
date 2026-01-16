@@ -26,6 +26,6 @@ trustfall = "0.8"
 trustfall_git_adapter = { version = "0.1.0", path = "../trustfall_git_adapter" }
 
 [dev-dependencies]
-assert_cmd = "2.0"
+assert_cmd = "2.1"
 predicates = "3.0"
 tempfile = "3.8"
