@@ -89,6 +89,22 @@ git-seek --query '{repository {name @output}}' --var repo_name=my-repo
       hash @output
       message @output
       author @output
+      date @output
+    }
+  }
+}
+```
+
+**Commit author and committer details:**
+```trustfall
+{
+  repository {
+    commits(limit: 5) {
+      hash @output
+      author @output
+      author_email @output
+      committer @output
+      committer_email @output
     }
   }
 }
@@ -124,6 +140,10 @@ type Commit {
     hash: String!
     message: String
     author: String
+    author_email: String
+    committer: String
+    committer_email: String
+    date: String
 }
 
 type Branch {
