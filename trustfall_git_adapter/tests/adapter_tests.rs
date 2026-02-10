@@ -436,6 +436,59 @@ fn test_query_commit_date() {
 }
 
 #[test]
+fn test_query_commit_author_and_committer_fields() {
+    let (_temp_dir, repo) = create_test_repo_with_multiple_commits();
+    let adapter = GitAdapter::new(&repo);
+
+    let query = r#"
+    {
+        repository {
+            commits {
+                author @output
+                author_email @output
+                committer @output
+                committer_email @output
+            }
+        }
+    }
+    "#;
+
+    let variables: std::collections::BTreeMap<&str, &str> = std::collections::BTreeMap::new();
+    let results: Vec<_> =
+        trustfall::execute_query(adapter.schema(), Arc::new(&adapter), query, variables)
+            .unwrap()
+            .collect();
+
+    assert!(results.len() >= 2);
+
+    for result in &results {
+        if let Some(trustfall::FieldValue::String(author)) = result.get("author") {
+            assert_eq!(author.as_ref(), "Author User");
+        } else {
+            panic!("author field should be a string");
+        }
+
+        if let Some(trustfall::FieldValue::String(email)) = result.get("author_email") {
+            assert_eq!(email.as_ref(), "author@example.com");
+        } else {
+            panic!("author_email field should be a string");
+        }
+
+        if let Some(trustfall::FieldValue::String(committer)) = result.get("committer") {
+            assert_eq!(committer.as_ref(), "Test User");
+        } else {
+            panic!("committer field should be a string");
+        }
+
+        if let Some(trustfall::FieldValue::String(email)) = result.get("committer_email") {
+            assert_eq!(email.as_ref(), "test@example.com");
+        } else {
+            panic!("committer_email field should be a string");
+        }
+    }
+}
+
+#[test]
 fn test_query_commits_with_different_limits() {
     let (_temp_dir, repo) = create_test_repo_with_multiple_commits();
     let adapter = GitAdapter::new(&repo);

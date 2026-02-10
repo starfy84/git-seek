@@ -127,6 +127,24 @@ git-seek --query '{
       hash @output
       message @output
       author @output
+      date @output
+    }
+  }
+}' --format table
+```
+
+### Author and Committer Details
+
+```bash
+# Show author and committer info for recent commits
+git-seek --query '{
+  repository {
+    commits(limit: 5) {
+      hash @output
+      author @output
+      author_email @output
+      committer @output
+      committer_email @output
     }
   }
 }' --format table

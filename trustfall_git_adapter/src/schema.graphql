@@ -22,6 +22,9 @@ type Commit {
     hash: String!
     message: String
     author: String
+    author_email: String
+    committer: String
+    committer_email: String
     date: String
 }
 
