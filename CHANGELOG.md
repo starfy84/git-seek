@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/starfy84/git-seek/compare/v1.3.0...v1.4.0) (2026-02-10)
+
+
+### Features
+
+* expose date field ([1959ef9](https://github.com/starfy84/git-seek/commit/1959ef97a0037f6e3b2c4b1b9f102377b5800128))
+
 # [1.3.0](https://github.com/starfy84/git-seek/compare/v1.2.0...v1.3.0) (2025-12-30)
 
 
