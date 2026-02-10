@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/starfy84/git-seek/compare/v1.4.0...v1.5.0) (2026-02-10)
+
+
+### Features
+
+* expose author email and comitter info ([e62a2d2](https://github.com/starfy84/git-seek/commit/e62a2d22e542d37f3c87b44207e3a500f9a145ba))
+
 # [1.4.0](https://github.com/starfy84/git-seek/compare/v1.3.0...v1.4.0) (2026-02-10)
 
 
