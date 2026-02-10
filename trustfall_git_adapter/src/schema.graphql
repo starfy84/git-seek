@@ -22,6 +22,7 @@ type Commit {
     hash: String!
     message: String
     author: String
+    date: String
 }
 
 type Branch {

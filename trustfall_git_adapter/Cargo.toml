@@ -14,6 +14,7 @@ version = "0.20"
 default-features = false
 
 [dependencies]
+chrono = "0.4"
 trustfall = "0.8.1"
 trustfall_core = "0.8.1"
 trustfall_derive = "0.3.1"

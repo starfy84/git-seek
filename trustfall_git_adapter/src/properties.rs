@@ -51,6 +51,15 @@ pub(super) fn resolve_commit_property<'a, V: AsVertex<Vertex<'a>> + 'a>(
             contexts,
             accessor_property!(as_commit, inner, { inner.author().name().into() }),
         ),
+        "date" => resolve_property_with(
+            contexts,
+            accessor_property!(as_commit, inner, {
+                let time = inner.time();
+                let utc_datetime = chrono::DateTime::from_timestamp(time.seconds(), 0).unwrap();
+                let local_datetime = utc_datetime.with_timezone(&chrono::Local);
+                local_datetime.to_rfc3339().into()
+            }),
+        ),
         _ => unreachable!("resolve_commit_property {property_name}"),
     }
 }

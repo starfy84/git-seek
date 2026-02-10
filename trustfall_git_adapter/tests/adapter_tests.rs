@@ -397,6 +397,45 @@ fn test_query_commits_with_limit() {
 }
 
 #[test]
+fn test_query_commit_date() {
+    let (_temp_dir, repo) = create_test_repo_with_multiple_commits();
+    let adapter = GitAdapter::new(&repo);
+
+    let query = r#"
+    {
+        repository {
+            commits {
+                hash @output
+                date @output
+            }
+        }
+    }
+    "#;
+
+    let variables: std::collections::BTreeMap<&str, &str> = std::collections::BTreeMap::new();
+    let results: Vec<_> =
+        trustfall::execute_query(adapter.schema(), Arc::new(&adapter), query, variables)
+            .unwrap()
+            .collect();
+
+    assert!(results.len() >= 2);
+
+    for result in &results {
+        assert!(result.contains_key("date"));
+        if let Some(trustfall::FieldValue::String(date)) = result.get("date") {
+            // Should be a non-empty string
+            assert!(!date.is_empty());
+            // Should contain 'T' separator (ISO 8601 format)
+            assert!(date.contains('T'));
+            // Should be a reasonable length for an ISO 8601 date string
+            assert!(date.len() >= 19);
+        } else {
+            panic!("Date field should be a string");
+        }
+    }
+}
+
+#[test]
 fn test_query_commits_with_different_limits() {
     let (_temp_dir, repo) = create_test_repo_with_multiple_commits();
     let adapter = GitAdapter::new(&repo);
