@@ -125,6 +125,34 @@ git-seek --query '{repository {name @output}}' --var repo_name=my-repo
 }
 ```
 
+**Tag listing:**
+```trustfall
+{
+  repository {
+    tags {
+      name @output
+      message @output
+      tagger_name @output
+    }
+  }
+}
+```
+
+**Tags with their commits:**
+```trustfall
+{
+  repository {
+    tags {
+      name @output
+      commit {
+        hash @output
+        message @output
+      }
+    }
+  }
+}
+```
+
 ## Schema
 
 The Trustfall schema defines the structure for querying Git repositories:
@@ -134,6 +162,7 @@ type Repository {
     name: String!
     commits(limit: Int): [Commit!]!
     branches: [Branch!]!
+    tags: [Tag!]!
 }
 
 type Commit {
@@ -148,6 +177,14 @@ type Commit {
 
 type Branch {
     name: String!
+    commit: Commit!
+}
+
+type Tag {
+    name: String!
+    message: String
+    tagger_name: String
+    tagger_email: String
     commit: Commit!
 }
 ```

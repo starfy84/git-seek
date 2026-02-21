@@ -79,6 +79,7 @@ impl<'a> Adapter<'a> for &'a GitAdapter<'a> {
             "Repository" => properties::resolve_repository_property(contexts, property_name),
             "Branch" => properties::resolve_branch_property(contexts, property_name),
             "Commit" => properties::resolve_commit_property(contexts, property_name),
+            "Tag" => properties::resolve_tag_property(contexts, property_name),
             _ => unreachable!("resolve_property {type_name}"),
         }
     }
@@ -98,6 +99,7 @@ impl<'a> Adapter<'a> for &'a GitAdapter<'a> {
         match type_name.as_ref() {
             "Repository" => edges::resolve_repository_edge(self, contexts, edge_name, parameters),
             "Branch" => edges::resolve_branch_edge(self, contexts, edge_name),
+            "Tag" => edges::resolve_tag_edge(self, contexts, edge_name),
             _ => unreachable!("resolve_neighbors {type_name}"),
         }
     }

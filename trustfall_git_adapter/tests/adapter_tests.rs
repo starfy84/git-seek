@@ -3,6 +3,44 @@ use std::sync::Arc;
 use tempfile::TempDir;
 use trustfall_git_adapter::GitAdapter;
 
+fn create_test_repo_with_tags() -> (TempDir, Repository) {
+    let (temp_dir, repo) = create_test_repo_with_multiple_commits();
+
+    let signature = git2::Signature::now("Test User", "test@example.com").unwrap();
+
+    {
+        let head_commit = repo.head().unwrap().peel_to_commit().unwrap();
+
+        // Create a lightweight tag
+        repo.tag_lightweight("v0.1.0", head_commit.as_object(), false)
+            .unwrap();
+
+        // Create an annotated tag
+        repo.tag(
+            "v1.0.0",
+            head_commit.as_object(),
+            &signature,
+            "Release version 1.0.0",
+            false,
+        )
+        .unwrap();
+
+        // Create an annotated tag on the first commit
+        let first_commit_oid = head_commit.parent_id(0).unwrap();
+        let first_commit = repo.find_commit(first_commit_oid).unwrap();
+        repo.tag(
+            "v0.0.1",
+            first_commit.as_object(),
+            &signature,
+            "Initial release",
+            false,
+        )
+        .unwrap();
+    }
+
+    (temp_dir, repo)
+}
+
 fn create_test_repo() -> (TempDir, Repository) {
     let temp_dir = TempDir::new().unwrap();
     let repo = Repository::init(temp_dir.path()).unwrap();
@@ -579,5 +617,380 @@ fn test_query_commits_with_different_limits() {
             first_limit_1.get("hash"),
             "Limited query should return the same first commit"
         );
+    }
+}
+
+#[test]
+fn test_query_tag_names() {
+    let (_temp_dir, repo) = create_test_repo_with_tags();
+    let adapter = GitAdapter::new(&repo);
+
+    let query = r#"
+    {
+        repository {
+            tags {
+                name @output
+            }
+        }
+    }
+    "#;
+
+    let variables: std::collections::BTreeMap<&str, &str> = std::collections::BTreeMap::new();
+    let results: Vec<_> =
+        trustfall::execute_query(adapter.schema(), Arc::new(&adapter), query, variables)
+            .unwrap()
+            .collect();
+
+    assert_eq!(results.len(), 3, "Should have 3 tags");
+
+    let tag_names: Vec<String> = results
+        .iter()
+        .filter_map(|row| {
+            if let Some(trustfall::FieldValue::String(name)) = row.get("name") {
+                Some(name.to_string())
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    assert!(tag_names.contains(&"v0.1.0".to_string()));
+    assert!(tag_names.contains(&"v1.0.0".to_string()));
+    assert!(tag_names.contains(&"v0.0.1".to_string()));
+}
+
+#[test]
+fn test_query_annotated_tag_properties() {
+    let (_temp_dir, repo) = create_test_repo_with_tags();
+    let adapter = GitAdapter::new(&repo);
+
+    let query = r#"
+    {
+        repository {
+            tags {
+                name @output
+                message @output
+                tagger_name @output
+                tagger_email @output
+            }
+        }
+    }
+    "#;
+
+    let variables: std::collections::BTreeMap<&str, &str> = std::collections::BTreeMap::new();
+    let results: Vec<_> =
+        trustfall::execute_query(adapter.schema(), Arc::new(&adapter), query, variables)
+            .unwrap()
+            .collect();
+
+    // Find the annotated tag v1.0.0
+    let v1_tag = results
+        .iter()
+        .find(|row| {
+            matches!(row.get("name"), Some(trustfall::FieldValue::String(name)) if name.as_ref() == "v1.0.0")
+        })
+        .expect("Should find v1.0.0 tag");
+
+    assert_eq!(
+        v1_tag.get("message"),
+        Some(&trustfall::FieldValue::String(
+            "Release version 1.0.0".into()
+        ))
+    );
+    assert_eq!(
+        v1_tag.get("tagger_name"),
+        Some(&trustfall::FieldValue::String("Test User".into()))
+    );
+    assert_eq!(
+        v1_tag.get("tagger_email"),
+        Some(&trustfall::FieldValue::String("test@example.com".into()))
+    );
+
+    // Find the lightweight tag v0.1.0 — should have null message/tagger
+    let lightweight_tag = results
+        .iter()
+        .find(|row| {
+            matches!(row.get("name"), Some(trustfall::FieldValue::String(name)) if name.as_ref() == "v0.1.0")
+        })
+        .expect("Should find v0.1.0 tag");
+
+    assert_eq!(
+        lightweight_tag.get("message"),
+        Some(&trustfall::FieldValue::Null)
+    );
+    assert_eq!(
+        lightweight_tag.get("tagger_name"),
+        Some(&trustfall::FieldValue::Null)
+    );
+    assert_eq!(
+        lightweight_tag.get("tagger_email"),
+        Some(&trustfall::FieldValue::Null)
+    );
+}
+
+#[test]
+fn test_query_tag_commit_relationship() {
+    let (_temp_dir, repo) = create_test_repo_with_tags();
+    let adapter = GitAdapter::new(&repo);
+
+    let query = r#"
+    {
+        repository {
+            tags {
+                name @output
+                commit {
+                    hash @output
+                    message @output
+                }
+            }
+        }
+    }
+    "#;
+
+    let variables: std::collections::BTreeMap<&str, &str> = std::collections::BTreeMap::new();
+    let results: Vec<_> =
+        trustfall::execute_query(adapter.schema(), Arc::new(&adapter), query, variables)
+            .unwrap()
+            .collect();
+
+    assert_eq!(results.len(), 3);
+
+    for result in &results {
+        assert!(result.contains_key("name"));
+        assert!(result.contains_key("hash"));
+        assert!(result.contains_key("message"));
+
+        if let Some(trustfall::FieldValue::String(hash)) = result.get("hash") {
+            assert_eq!(hash.len(), 40);
+            assert!(hash.chars().all(|c| c.is_ascii_hexdigit()));
+        } else {
+            panic!("Hash field should be a string");
+        }
+    }
+
+    // v0.0.1 should point to the first commit
+    let v001 = results
+        .iter()
+        .find(|row| {
+            matches!(row.get("name"), Some(trustfall::FieldValue::String(name)) if name.as_ref() == "v0.0.1")
+        })
+        .expect("Should find v0.0.1 tag");
+
+    if let Some(trustfall::FieldValue::String(msg)) = v001.get("message") {
+        assert_eq!(msg.as_ref(), "Initial commit");
+    }
+
+    // v1.0.0 and v0.1.0 should point to the second commit
+    let v100 = results
+        .iter()
+        .find(|row| {
+            matches!(row.get("name"), Some(trustfall::FieldValue::String(name)) if name.as_ref() == "v1.0.0")
+        })
+        .expect("Should find v1.0.0 tag");
+
+    if let Some(trustfall::FieldValue::String(msg)) = v100.get("message") {
+        assert_eq!(msg.as_ref(), "Second commit with more details");
+    }
+}
+
+#[test]
+fn test_query_tags_empty_repo() {
+    let (_temp_dir, repo) = create_test_repo();
+    let adapter = GitAdapter::new(&repo);
+
+    let query = r#"
+    {
+        repository {
+            tags {
+                name @output
+            }
+        }
+    }
+    "#;
+
+    let variables: std::collections::BTreeMap<&str, &str> = std::collections::BTreeMap::new();
+    let results: Vec<_> =
+        trustfall::execute_query(adapter.schema(), Arc::new(&adapter), query, variables)
+            .unwrap()
+            .collect();
+
+    assert!(results.is_empty(), "Repo with no tags should return empty results");
+}
+
+#[test]
+fn test_query_lightweight_tag_commit() {
+    let (_temp_dir, repo) = create_test_repo_with_tags();
+    let adapter = GitAdapter::new(&repo);
+
+    let query = r#"
+    {
+        repository {
+            tags {
+                name @output
+                commit {
+                    hash @output
+                }
+            }
+        }
+    }
+    "#;
+
+    let variables: std::collections::BTreeMap<&str, &str> = std::collections::BTreeMap::new();
+    let results: Vec<_> =
+        trustfall::execute_query(adapter.schema(), Arc::new(&adapter), query, variables)
+            .unwrap()
+            .collect();
+
+    // Find the lightweight tag v0.1.0
+    let lightweight = results
+        .iter()
+        .find(|row| {
+            matches!(row.get("name"), Some(trustfall::FieldValue::String(name)) if name.as_ref() == "v0.1.0")
+        })
+        .expect("Should find v0.1.0 lightweight tag");
+
+    // The lightweight tag should point to HEAD
+    let head_oid = repo.head().unwrap().peel_to_commit().unwrap().id();
+    let expected_hash = head_oid.to_string();
+
+    if let Some(trustfall::FieldValue::String(hash)) = lightweight.get("hash") {
+        assert_eq!(hash.as_ref(), expected_hash, "Lightweight tag should point to HEAD commit");
+    } else {
+        panic!("Hash field should be a string");
+    }
+}
+
+#[test]
+fn test_filter_commits_by_author() {
+    let (_temp_dir, repo) = create_test_repo_with_multiple_commits();
+    let adapter = GitAdapter::new(&repo);
+
+    let query = r#"
+    {
+        repository {
+            commits {
+                author @output @filter(op: "=", value: ["$author"])
+                message @output
+            }
+        }
+    }
+    "#;
+
+    let mut variables: std::collections::BTreeMap<&str, &str> = std::collections::BTreeMap::new();
+    variables.insert("author", "Author User");
+
+    let results: Vec<_> =
+        trustfall::execute_query(adapter.schema(), Arc::new(&adapter), query, variables)
+            .unwrap()
+            .collect();
+
+    assert!(!results.is_empty(), "Should find commits by Author User");
+
+    for result in &results {
+        if let Some(trustfall::FieldValue::String(author)) = result.get("author") {
+            assert_eq!(author.as_ref(), "Author User");
+        } else {
+            panic!("Author field should be a string");
+        }
+    }
+}
+
+#[test]
+fn test_filter_commits_by_message_regex() {
+    let (_temp_dir, repo) = create_test_repo_with_multiple_commits();
+    let adapter = GitAdapter::new(&repo);
+
+    let query = r#"
+    {
+        repository {
+            commits {
+                message @output @filter(op: "regex", value: ["$pattern"])
+            }
+        }
+    }
+    "#;
+
+    let mut variables: std::collections::BTreeMap<&str, &str> = std::collections::BTreeMap::new();
+    variables.insert("pattern", "^Second");
+
+    let results: Vec<_> =
+        trustfall::execute_query(adapter.schema(), Arc::new(&adapter), query, variables)
+            .unwrap()
+            .collect();
+
+    assert_eq!(results.len(), 1, "Should find exactly 1 commit starting with 'Second'");
+
+    if let Some(trustfall::FieldValue::String(message)) = results[0].get("message") {
+        assert!(message.starts_with("Second"), "Message should start with 'Second'");
+    } else {
+        panic!("Message field should be a string");
+    }
+}
+
+#[test]
+fn test_filter_branches_by_name() {
+    let (_temp_dir, repo) = create_test_repo();
+    let adapter = GitAdapter::new(&repo);
+
+    let query = r#"
+    {
+        repository {
+            branches {
+                name @output @filter(op: "regex", value: ["$pattern"])
+            }
+        }
+    }
+    "#;
+
+    let mut variables: std::collections::BTreeMap<&str, &str> = std::collections::BTreeMap::new();
+    variables.insert("pattern", "ma(in|ster)");
+
+    let results: Vec<_> =
+        trustfall::execute_query(adapter.schema(), Arc::new(&adapter), query, variables)
+            .unwrap()
+            .collect();
+
+    assert_eq!(results.len(), 1, "Should find exactly 1 branch matching main or master");
+}
+
+#[test]
+fn test_filter_tags_by_name() {
+    let (_temp_dir, repo) = create_test_repo_with_tags();
+    let adapter = GitAdapter::new(&repo);
+
+    let query = r#"
+    {
+        repository {
+            tags {
+                name @output @filter(op: "=", value: ["$name"])
+                message @output
+            }
+        }
+    }
+    "#;
+
+    let mut variables: std::collections::BTreeMap<&str, &str> = std::collections::BTreeMap::new();
+    variables.insert("name", "v1.0.0");
+
+    let results: Vec<_> =
+        trustfall::execute_query(adapter.schema(), Arc::new(&adapter), query, variables)
+            .unwrap()
+            .collect();
+
+    assert_eq!(results.len(), 1, "Should find exactly 1 tag named v1.0.0");
+
+    let result = &results[0];
+    if let Some(trustfall::FieldValue::String(name)) = result.get("name") {
+        assert_eq!(name.as_ref(), "v1.0.0");
+    } else {
+        panic!("Name field should be a string");
+    }
+
+    // v1.0.0 is annotated, so message should be non-null
+    match result.get("message") {
+        Some(trustfall::FieldValue::String(msg)) => {
+            assert!(!msg.is_empty(), "Annotated tag should have a non-empty message");
+        }
+        _ => panic!("Message field should be a non-null string for annotated tag"),
     }
 }

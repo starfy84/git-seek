@@ -7,4 +7,5 @@ pub enum Vertex<'a> {
     Repository(types::Repository),
     Commit(types::Commit<'a>),
     Branch(types::Branch<'a>),
+    Tag(types::Tag),
 }

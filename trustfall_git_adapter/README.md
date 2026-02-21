@@ -135,6 +135,34 @@ let query = r#"{
 }"#;
 ```
 
+**All tags:**
+```rust
+let query = r#"{
+  repository {
+    tags {
+      name @output
+      message @output
+      tagger_name @output
+    }
+  }
+}"#;
+```
+
+**Tags with their commits:**
+```rust
+let query = r#"{
+  repository {
+    tags {
+      name @output
+      commit {
+        hash @output
+        message @output
+      }
+    }
+  }
+}"#;
+```
+
 ## Schema
 
 The adapter implements the following GraphQL schema:
@@ -152,6 +180,7 @@ type Repository {
     name: String!
     commits(limit: Int): [Commit!]!
     branches: [Branch!]!
+    tags: [Tag!]!
 }
 
 type Commit {
@@ -168,6 +197,14 @@ type Branch {
     name: String!
     commit: Commit!
 }
+
+type Tag {
+    name: String!
+    message: String
+    tagger_name: String
+    tagger_email: String
+    commit: Commit!
+}
 ```
 
 ### Supported Operations
@@ -176,12 +213,14 @@ type Branch {
 - **Branch enumeration**: List all branches in the repository
 - **Commit traversal**: Iterate through commit history
 - **Branch-to-commit relationships**: Access the latest commit for each branch
+- **Tag enumeration**: List all tags (lightweight and annotated)
+- **Tag-to-commit relationships**: Access the commit each tag points to
 
 ## Architecture
 
 The adapter is built using Trustfall's derive macros and implements:
 
-- **Vertices**: `Repository`, `Commit`, `Branch`
+- **Vertices**: `Repository`, `Commit`, `Branch`, `Tag`
 - **Edges**: Navigation between related Git objects
 - **Properties**: Data extraction from Git objects
 
