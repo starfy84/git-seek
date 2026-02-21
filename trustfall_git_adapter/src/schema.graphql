@@ -16,6 +16,7 @@ type Repository {
     name: String!
     commits(limit: Int): [Commit!]!
     branches: [Branch!]!
+    tags: [Tag!]!
 }
 
 type Commit {
@@ -30,5 +31,13 @@ type Commit {
 
 type Branch {
     name: String!
+    commit: Commit!
+}
+
+type Tag {
+    name: String!
+    message: String
+    tagger_name: String
+    tagger_email: String
     commit: Commit!
 }

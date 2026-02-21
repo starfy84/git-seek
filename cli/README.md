@@ -133,6 +133,36 @@ git-seek --query '{
 }' --format table
 ```
 
+### Tag Listing
+
+```bash
+git-seek --query '{
+  repository {
+    tags {
+      name @output
+      message @output
+      tagger_name @output
+    }
+  }
+}' --format table
+```
+
+### Tags with Commits
+
+```bash
+git-seek --query '{
+  repository {
+    tags {
+      name @output
+      commit {
+        hash @output
+        message @output
+      }
+    }
+  }
+}' --format table
+```
+
 ### Author and Committer Details
 
 ```bash
