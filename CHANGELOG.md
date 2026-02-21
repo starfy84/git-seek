@@ -1,3 +1,10 @@
+# [1.6.0](https://github.com/starfy84/git-seek/compare/v1.5.0...v1.6.0) (2026-02-21)
+
+
+### Features
+
+* expose tags ([1bf7ffa](https://github.com/starfy84/git-seek/commit/1bf7ffac50c97e6e19f9258b89e991d12febed9b))
+
 # [1.5.0](https://github.com/starfy84/git-seek/compare/v1.4.0...v1.5.0) (2026-02-10)
 
 
