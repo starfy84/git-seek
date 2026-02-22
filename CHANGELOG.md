@@ -1,3 +1,10 @@
+# [1.8.0](https://github.com/starfy84/git-seek/compare/v1.7.0...v1.8.0) (2026-02-22)
+
+
+### Features
+
+* Trigger Build ([10c9c7c](https://github.com/starfy84/git-seek/commit/10c9c7c6c09e4d0c53b63860e96c99945cb9a566))
+
 # [1.7.0](https://github.com/starfy84/git-seek/compare/v1.6.0...v1.7.0) (2026-02-22)
 
 
