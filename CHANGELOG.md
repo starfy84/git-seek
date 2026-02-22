@@ -1,3 +1,10 @@
+# [1.7.0](https://github.com/starfy84/git-seek/compare/v1.6.0...v1.7.0) (2026-02-22)
+
+
+### Features
+
+* switch to trusted publishing for crates.io ([3e0e99c](https://github.com/starfy84/git-seek/commit/3e0e99c67cae7041e275992c037309b95503ee2d))
+
 # [1.6.0](https://github.com/starfy84/git-seek/compare/v1.5.0...v1.6.0) (2026-02-21)
 
 
