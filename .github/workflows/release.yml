@@ -17,9 +17,8 @@ permissions:
   issues: write
   pull-requests: write
   packages: write
+  id-token: write
 
 jobs:
   release:
-    uses: semantic-release-action/rust/.github/workflows/release-binary.yml@v5
-    secrets:
-      cargo-registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+    uses: starfy84/semantic-release-action-rust/.github/workflows/release-binary.yml@v5-trusted-publishing
