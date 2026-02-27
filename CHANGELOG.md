@@ -1,3 +1,10 @@
+# [1.9.0](https://github.com/starfy84/git-seek/compare/v1.8.0...v1.9.0) (2026-02-27)
+
+
+### Features
+
+* switch release workflow back to upstream semantic-release-action ([0d60daa](https://github.com/starfy84/git-seek/commit/0d60daa2f3a2595a2c97b83339dc65790ec8fac2))
+
 # [1.8.0](https://github.com/starfy84/git-seek/compare/v1.7.0...v1.8.0) (2026-02-22)
 
 
