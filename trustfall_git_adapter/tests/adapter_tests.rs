@@ -814,7 +814,10 @@ fn test_query_tags_empty_repo() {
             .unwrap()
             .collect();
 
-    assert!(results.is_empty(), "Repo with no tags should return empty results");
+    assert!(
+        results.is_empty(),
+        "Repo with no tags should return empty results"
+    );
 }
 
 #[test]
@@ -854,7 +857,11 @@ fn test_query_lightweight_tag_commit() {
     let expected_hash = head_oid.to_string();
 
     if let Some(trustfall::FieldValue::String(hash)) = lightweight.get("hash") {
-        assert_eq!(hash.as_ref(), expected_hash, "Lightweight tag should point to HEAD commit");
+        assert_eq!(
+            hash.as_ref(),
+            expected_hash,
+            "Lightweight tag should point to HEAD commit"
+        );
     } else {
         panic!("Hash field should be a string");
     }
@@ -918,10 +925,17 @@ fn test_filter_commits_by_message_regex() {
             .unwrap()
             .collect();
 
-    assert_eq!(results.len(), 1, "Should find exactly 1 commit starting with 'Second'");
+    assert_eq!(
+        results.len(),
+        1,
+        "Should find exactly 1 commit starting with 'Second'"
+    );
 
     if let Some(trustfall::FieldValue::String(message)) = results[0].get("message") {
-        assert!(message.starts_with("Second"), "Message should start with 'Second'");
+        assert!(
+            message.starts_with("Second"),
+            "Message should start with 'Second'"
+        );
     } else {
         panic!("Message field should be a string");
     }
@@ -950,7 +964,11 @@ fn test_filter_branches_by_name() {
             .unwrap()
             .collect();
 
-    assert_eq!(results.len(), 1, "Should find exactly 1 branch matching main or master");
+    assert_eq!(
+        results.len(),
+        1,
+        "Should find exactly 1 branch matching main or master"
+    );
 }
 
 #[test]
@@ -989,7 +1007,10 @@ fn test_filter_tags_by_name() {
     // v1.0.0 is annotated, so message should be non-null
     match result.get("message") {
         Some(trustfall::FieldValue::String(msg)) => {
-            assert!(!msg.is_empty(), "Annotated tag should have a non-empty message");
+            assert!(
+                !msg.is_empty(),
+                "Annotated tag should have a non-empty message"
+            );
         }
         _ => panic!("Message field should be a non-null string for annotated tag"),
     }

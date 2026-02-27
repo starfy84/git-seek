@@ -27,6 +27,37 @@ cargo build --release
 
 ## Basic Usage
 
+### Preset Queries
+
+Run common queries without writing Trustfall:
+
+```bash
+# List available presets
+git-seek preset list
+
+# Show recent commits (default: last 10)
+git-seek preset run recent-commits
+
+# Show last 5 commits in table format
+git-seek preset run recent-commits --param limit=5 --format table
+
+# List all branches
+git-seek preset run branches
+
+# List all tags
+git-seek preset run tags
+
+# Find commits by a specific author
+git-seek preset run commits-by-author --param author="Alice"
+
+# Search commit messages with regex
+git-seek preset run search-commits --param pattern="fix.*bug"
+```
+
+### Custom Queries
+
+Write your own Trustfall queries for full control:
+
 ```bash
 # Query repository name
 git-seek --query '{repository {name @output}}'

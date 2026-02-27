@@ -1,4 +1,6 @@
-use clap::{ArgGroup, Parser};
+mod presets;
+
+use clap::Parser;
 use comfy_table::{Table, presets::UTF8_FULL};
 use git2::Repository;
 use serde_json::{Map, Value};
@@ -54,21 +56,19 @@ fn convert_result_row_to_json(row: &BTreeMap<std::sync::Arc<str>, trustfall::Fie
 
 #[derive(Parser, Debug)]
 #[command(
-    name = "gitql",
-    about = "Run Trustfall queries against a Git repository",
-    group(
-        ArgGroup::new("query_source")
-            .args(["query", "file"])
-            .required(false) // because we want to allow stdin fallback
-    )
+    name = "git-seek",
+    about = "Run Trustfall queries against a Git repository"
 )]
-struct Args {
+struct Cli {
+    #[command(subcommand)]
+    command: Option<Commands>,
+
     /// Inline Trustfall query
-    #[arg(short, long)]
+    #[arg(short, long, group = "query_source")]
     pub query: Option<String>,
 
     /// Path to query file
-    #[arg(short, long)]
+    #[arg(short, long, group = "query_source")]
     pub file: Option<PathBuf>,
 
     /// Optional variables: --var name=value
@@ -80,6 +80,34 @@ struct Args {
     pub format: OutputFormat,
 }
 
+#[derive(clap::Subcommand, Debug)]
+enum Commands {
+    /// Run a preset query
+    Preset {
+        #[command(subcommand)]
+        action: PresetAction,
+    },
+}
+
+#[derive(clap::Subcommand, Debug)]
+enum PresetAction {
+    /// List all available presets
+    List,
+    /// Run a specific preset
+    Run {
+        /// Name of the preset to run
+        name: String,
+
+        /// Preset parameters: --param name=value
+        #[arg(long = "param")]
+        params: Vec<String>,
+
+        /// Output format
+        #[arg(long, value_enum, default_value = "raw")]
+        format: OutputFormat,
+    },
+}
+
 #[derive(clap::ValueEnum, Clone, Debug, PartialEq)]
 enum OutputFormat {
     Table,
@@ -89,49 +117,47 @@ enum OutputFormat {
 
 use std::io::{self, IsTerminal, Read};
 
-impl Args {
-    pub fn load_query(&self) -> anyhow::Result<String> {
-        if let Some(q) = &self.query {
-            return Ok(q.clone());
-        }
+fn load_query(query: &Option<String>, file: &Option<PathBuf>) -> anyhow::Result<String> {
+    if let Some(q) = query {
+        return Ok(q.clone());
+    }
+    if let Some(path) = file {
+        return Ok(std::fs::read_to_string(path)?);
+    }
+    let mut input = String::new();
+    if io::stdin().is_terminal() {
+        anyhow::bail!("No query provided. Use --query, --file, or pipe via stdin.");
+    }
+    io::stdin().read_to_string(&mut input)?;
+    Ok(input)
+}
 
-        if let Some(path) = &self.file {
-            return Ok(std::fs::read_to_string(path)?);
-        }
-
-        // Fallback to stdin
-        let mut input = String::new();
-        if io::stdin().is_terminal() {
-            anyhow::bail!("No query provided. Use --query, --file, or pipe via stdin.");
-        }
-
-        io::stdin().read_to_string(&mut input)?;
-        Ok(input)
+/// Coerce a string CLI variable into a typed Trustfall FieldValue.
+/// Tries integer, then float, then falls back to string.
+fn coerce_variable(value: &str) -> trustfall::FieldValue {
+    if let Ok(n) = value.parse::<i64>() {
+        trustfall::FieldValue::Int64(n)
+    } else if let Ok(f) = value.parse::<f64>() {
+        trustfall::FieldValue::Float64(f)
+    } else {
+        trustfall::FieldValue::String(value.into())
     }
 }
 
-fn main() -> anyhow::Result<()> {
-    let repo = Repository::open_from_env()?;
-    let adapter = GitAdapter::new(&repo);
+fn execute_and_output(
+    adapter: &GitAdapter<'_>,
+    query: &str,
+    variables: BTreeMap<&str, &str>,
+    format: &OutputFormat,
+) -> anyhow::Result<()> {
+    let typed_variables: BTreeMap<&str, trustfall::FieldValue> = variables
+        .into_iter()
+        .map(|(k, v)| (k, coerce_variable(v)))
+        .collect();
+    let result =
+        trustfall::execute_query(adapter.schema(), Arc::new(adapter), query, typed_variables)?;
 
-    let args = Args::parse();
-
-    let variables = args
-        .vars
-        .iter()
-        .filter_map(|var_entry| var_entry.split_once("="))
-        .collect::<BTreeMap<_, _>>();
-
-    let query = args.load_query()?;
-
-    let result = trustfall::execute_query(
-        adapter.schema(),
-        Arc::new(&adapter),
-        query.as_str(),
-        variables,
-    )?;
-
-    match args.format {
+    match format {
         OutputFormat::Json => {
             let results: Vec<Value> = result.map(|row| convert_result_row_to_json(&row)).collect();
             println!("{}", serde_json::to_string_pretty(&results)?);
@@ -141,12 +167,9 @@ fn main() -> anyhow::Result<()> {
             if rows.is_empty() {
                 return Ok(());
             }
-
             let columns: Vec<String> = rows[0].keys().map(|k| k.to_string()).collect();
-
             let mut table = Table::new();
             table.load_preset(UTF8_FULL).set_header(&columns);
-
             for row in &rows {
                 let row_values = columns.iter().map(|col| match row.get(col.as_str()) {
                     Some(value) => format_trustfall_value_for_table(value),
@@ -154,7 +177,6 @@ fn main() -> anyhow::Result<()> {
                 });
                 table.add_row(row_values);
             }
-
             println!("{table}");
         }
         OutputFormat::Raw => {
@@ -163,8 +185,135 @@ fn main() -> anyhow::Result<()> {
             }
         }
     }
-
     Ok(())
+}
+
+fn run_preset(adapter: &GitAdapter<'_>, action: PresetAction) -> anyhow::Result<()> {
+    match action {
+        PresetAction::List => {
+            let mut table = Table::new();
+            table
+                .load_preset(UTF8_FULL)
+                .set_header(vec!["Name", "Description", "Parameters"]);
+
+            for preset in presets::all_presets() {
+                let params_str = if preset.params.is_empty() {
+                    "(none)".to_string()
+                } else {
+                    preset
+                        .params
+                        .iter()
+                        .map(|p| {
+                            if let Some(default) = p.default {
+                                format!("--{}: {} (default: {})", p.name, p.description, default)
+                            } else {
+                                format!("--{}: {} (required)", p.name, p.description)
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                };
+                table.add_row(vec![preset.name, preset.description, &params_str]);
+            }
+            println!("{table}");
+            Ok(())
+        }
+        PresetAction::Run {
+            name,
+            params,
+            format,
+        } => {
+            let preset = presets::find_preset(&name).ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Unknown preset: '{}'. Run 'git-seek preset list' to see available presets.",
+                    name
+                )
+            })?;
+
+            let mut user_params = BTreeMap::new();
+            for p in &params {
+                match p.split_once("=") {
+                    Some((k, v)) => {
+                        user_params.insert(k, v);
+                    }
+                    None => {
+                        anyhow::bail!(
+                            "Invalid parameter format '{}'. Expected '--param name=value'.",
+                            p
+                        );
+                    }
+                }
+            }
+
+            let mut variables = BTreeMap::new();
+            let mut inline_replacements = Vec::new();
+            for param in preset.params {
+                let resolved_value = if let Some(value) = user_params.get(param.name) {
+                    Some(*value)
+                } else if let Some(default) = param.default {
+                    Some(default)
+                } else if param.required {
+                    anyhow::bail!(
+                        "Missing required parameter '--param {}=<value>' for preset '{}'",
+                        param.name,
+                        preset.name
+                    );
+                } else {
+                    None
+                };
+
+                if let Some(value) = resolved_value {
+                    if param.inline {
+                        if value.parse::<i64>().is_err() {
+                            anyhow::bail!(
+                                "Parameter '{}' must be an integer, got '{}'",
+                                param.name,
+                                value
+                            );
+                        }
+                        inline_replacements.push((param.name, value));
+                    } else {
+                        variables.insert(param.name, value);
+                    }
+                }
+            }
+
+            // Inline params are substituted directly into the query string because
+            // Trustfall does not support variables in edge arguments (only in @filter).
+            // Safe here because preset queries are controlled constants.
+            let query = if inline_replacements.is_empty() {
+                preset.query.to_string()
+            } else {
+                let mut q = preset.query.to_string();
+                for (name, value) in &inline_replacements {
+                    q = q.replace(&format!("${}", name), value);
+                }
+                q
+            };
+
+            execute_and_output(adapter, &query, variables, &format)
+        }
+    }
+}
+
+fn main() -> anyhow::Result<()> {
+    let repo = Repository::open_from_env()?;
+    let adapter = GitAdapter::new(&repo);
+    let cli = Cli::parse();
+
+    match cli.command {
+        Some(Commands::Preset { action }) => run_preset(&adapter, action),
+        None => {
+            let variables = cli
+                .vars
+                .iter()
+                .filter_map(|var_entry| var_entry.split_once("="))
+                .collect::<BTreeMap<_, _>>();
+
+            let query = load_query(&cli.query, &cli.file)?;
+            execute_and_output(&adapter, &query, variables, &cli.format)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -314,57 +463,33 @@ mod tests {
     }
 
     #[test]
-    fn test_args_load_query_inline() {
-        let args = Args {
-            query: Some("test query".to_string()),
-            file: None,
-            vars: vec![],
-            format: OutputFormat::Raw,
-        };
-        let result = args.load_query().unwrap();
+    fn test_load_query_inline() {
+        let query = Some("test query".to_string());
+        let result = load_query(&query, &None).unwrap();
         assert_eq!(result, "test query");
     }
 
     #[test]
-    fn test_args_load_query_file() {
+    fn test_load_query_file() {
         use std::io::Write;
         let mut temp_file = tempfile::NamedTempFile::new().unwrap();
         writeln!(temp_file, "file query content").unwrap();
-
-        let args = Args {
-            query: None,
-            file: Some(temp_file.path().to_path_buf()),
-            vars: vec![],
-            format: OutputFormat::Raw,
-        };
-        let result = args.load_query().unwrap();
+        let result = load_query(&None, &Some(temp_file.path().to_path_buf())).unwrap();
         assert_eq!(result, "file query content\n");
     }
 
     #[test]
-    fn test_args_load_query_file_not_found() {
-        let args = Args {
-            query: None,
-            file: Some(PathBuf::from("/nonexistent/file.txt")),
-            vars: vec![],
-            format: OutputFormat::Raw,
-        };
-        assert!(args.load_query().is_err());
+    fn test_load_query_file_not_found() {
+        assert!(load_query(&None, &Some(PathBuf::from("/nonexistent/file.txt"))).is_err());
     }
 
     #[test]
-    fn test_args_load_query_priority_inline_over_file() {
+    fn test_load_query_priority_inline_over_file() {
         use std::io::Write;
         let mut temp_file = tempfile::NamedTempFile::new().unwrap();
         writeln!(temp_file, "file content").unwrap();
-
-        let args = Args {
-            query: Some("inline query".to_string()),
-            file: Some(temp_file.path().to_path_buf()),
-            vars: vec![],
-            format: OutputFormat::Raw,
-        };
-        let result = args.load_query().unwrap();
+        let query = Some("inline query".to_string());
+        let result = load_query(&query, &Some(temp_file.path().to_path_buf())).unwrap();
         assert_eq!(result, "inline query");
     }
 
@@ -376,5 +501,31 @@ mod tests {
         assert!(formats.contains(&OutputFormat::Table));
         assert!(formats.contains(&OutputFormat::Json));
         assert!(formats.contains(&OutputFormat::Raw));
+    }
+
+    #[test]
+    fn test_coerce_variable_integer() {
+        assert_eq!(coerce_variable("42"), trustfall::FieldValue::Int64(42));
+    }
+
+    #[test]
+    fn test_coerce_variable_negative_integer() {
+        assert_eq!(coerce_variable("-7"), trustfall::FieldValue::Int64(-7));
+    }
+
+    #[test]
+    fn test_coerce_variable_float() {
+        assert_eq!(
+            coerce_variable("3.14"),
+            trustfall::FieldValue::Float64(3.14)
+        );
+    }
+
+    #[test]
+    fn test_coerce_variable_string() {
+        assert_eq!(
+            coerce_variable("hello"),
+            trustfall::FieldValue::String("hello".into())
+        );
     }
 }
