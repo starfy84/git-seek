@@ -21,4 +21,4 @@ permissions:
 
 jobs:
   release:
-    uses: starfy84/semantic-release-action-rust/.github/workflows/release-binary.yml@v5-trusted-publishing
+    uses: semantic-release-action/rust/.github/workflows/release-binary.yml@v5
