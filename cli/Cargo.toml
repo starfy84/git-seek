@@ -33,4 +33,4 @@ trustfall_git_adapter = { version = "0.1.0", path = "../trustfall_git_adapter" }
 anyhow = "1.0.102"
 clap = { version = "4.5.60", features = ["derive"] }
 git2 = { version = "0.20", default-features = false }
-tempfile = "3.25"
+tempfile = "3.26"
