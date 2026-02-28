@@ -1,3 +1,16 @@
+# [1.10.0](https://github.com/starfy84/git-seek/compare/v1.9.0...v1.10.0) (2026-02-28)
+
+
+### Bug Fixes
+
+* restructure CLI as lib + bin to fix cross-compilation test failures ([6b8c2d9](https://github.com/starfy84/git-seek/commit/6b8c2d9e82bee24f005d7963bdedf48368503ce3))
+* update Cargo.lock after removing assert_cmd/predicates ([6d2e300](https://github.com/starfy84/git-seek/commit/6d2e3008be95cf71bf5d79d28420df2b9bc643a6))
+
+
+### Features
+
+* add preset queries subcommand ([03f602b](https://github.com/starfy84/git-seek/commit/03f602bf310a7fb030512f7d1e38a6205927645e))
+
 # [1.9.0](https://github.com/starfy84/git-seek/compare/v1.8.0...v1.9.0) (2026-02-27)
 
 
