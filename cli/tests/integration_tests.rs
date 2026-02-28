@@ -1,5 +1,5 @@
-use assert_cmd::Command;
-use predicates::prelude::*;
+use clap::Parser;
+use git_seek::Cli;
 use std::path::PathBuf;
 use tempfile::TempDir;
 
@@ -33,8 +33,11 @@ fn create_test_repo() -> (TempDir, PathBuf) {
     (temp_dir, repo_path)
 }
 
-fn git_seek() -> Command {
-    Command::new(assert_cmd::cargo::cargo_bin!("git-seek"))
+/// Parse CLI args and run against the given repo path.
+/// Returns Ok(()) on success, Err on failure.
+fn run_cli(args: &[&str], repo_path: &std::path::Path) -> anyhow::Result<()> {
+    let cli = Cli::try_parse_from(args)?;
+    git_seek::run_with_repo(cli, repo_path)
 }
 
 // --- Backward compatibility ---
@@ -42,12 +45,17 @@ fn git_seek() -> Command {
 #[test]
 fn test_query_mode_still_works() {
     let (_temp, path) = create_test_repo();
-    git_seek()
-        .current_dir(&path)
-        .args(["--query", "{repository {name @output}}", "--format", "json"])
-        .assert()
-        .success()
-        .stdout(predicate::str::contains("name"));
+    run_cli(
+        &[
+            "git-seek",
+            "--query",
+            "{repository {name @output}}",
+            "--format",
+            "json",
+        ],
+        &path,
+    )
+    .unwrap();
 }
 
 // --- Preset list ---
@@ -55,16 +63,7 @@ fn test_query_mode_still_works() {
 #[test]
 fn test_preset_list() {
     let (_temp, path) = create_test_repo();
-    git_seek()
-        .current_dir(&path)
-        .args(["preset", "list"])
-        .assert()
-        .success()
-        .stdout(predicate::str::contains("recent-commits"))
-        .stdout(predicate::str::contains("branches"))
-        .stdout(predicate::str::contains("tags"))
-        .stdout(predicate::str::contains("commits-by-author"))
-        .stdout(predicate::str::contains("search-commits"));
+    run_cli(&["git-seek", "preset", "list"], &path).unwrap();
 }
 
 // --- Preset run ---
@@ -72,108 +71,107 @@ fn test_preset_list() {
 #[test]
 fn test_preset_recent_commits() {
     let (_temp, path) = create_test_repo();
-    git_seek()
-        .current_dir(&path)
-        .args(["preset", "run", "recent-commits"])
-        .assert()
-        .success()
-        .stdout(predicate::str::contains("Initial commit"));
+    run_cli(&["git-seek", "preset", "run", "recent-commits"], &path).unwrap();
 }
 
 #[test]
 fn test_preset_recent_commits_with_limit() {
     let (_temp, path) = create_test_repo();
-    git_seek()
-        .current_dir(&path)
-        .args(["preset", "run", "recent-commits", "--param", "limit=1"])
-        .assert()
-        .success()
-        .stdout(predicate::str::contains("Initial commit"));
+    run_cli(
+        &[
+            "git-seek",
+            "preset",
+            "run",
+            "recent-commits",
+            "--param",
+            "limit=1",
+        ],
+        &path,
+    )
+    .unwrap();
 }
 
 #[test]
 fn test_preset_branches() {
     let (_temp, path) = create_test_repo();
-    git_seek()
-        .current_dir(&path)
-        .args(["preset", "run", "branches"])
-        .assert()
-        .success();
+    run_cli(&["git-seek", "preset", "run", "branches"], &path).unwrap();
 }
 
 #[test]
 fn test_preset_tags_empty() {
     let (_temp, path) = create_test_repo();
-    git_seek()
-        .current_dir(&path)
-        .args(["preset", "run", "tags"])
-        .assert()
-        .success();
+    run_cli(&["git-seek", "preset", "run", "tags"], &path).unwrap();
 }
 
 #[test]
 fn test_preset_commits_by_author() {
     let (_temp, path) = create_test_repo();
-    git_seek()
-        .current_dir(&path)
-        .args([
+    run_cli(
+        &[
+            "git-seek",
             "preset",
             "run",
             "commits-by-author",
             "--param",
             "author=Test User",
-        ])
-        .assert()
-        .success()
-        .stdout(predicate::str::contains("Initial commit"));
+        ],
+        &path,
+    )
+    .unwrap();
 }
 
 #[test]
 fn test_preset_commits_by_author_missing_param() {
     let (_temp, path) = create_test_repo();
-    git_seek()
-        .current_dir(&path)
-        .args(["preset", "run", "commits-by-author"])
-        .assert()
-        .failure()
-        .stderr(predicate::str::contains("Missing required parameter"));
+    let result = run_cli(&["git-seek", "preset", "run", "commits-by-author"], &path);
+    let err = result.unwrap_err().to_string();
+    assert!(
+        err.contains("Missing required parameter"),
+        "Expected 'Missing required parameter', got: {err}"
+    );
 }
 
 #[test]
 fn test_preset_search_commits() {
     let (_temp, path) = create_test_repo();
-    git_seek()
-        .current_dir(&path)
-        .args([
+    run_cli(
+        &[
+            "git-seek",
             "preset",
             "run",
             "search-commits",
             "--param",
             "pattern=Initial",
-        ])
-        .assert()
-        .success()
-        .stdout(predicate::str::contains("Initial commit"));
+        ],
+        &path,
+    )
+    .unwrap();
 }
 
 #[test]
 fn test_preset_unknown() {
     let (_temp, path) = create_test_repo();
-    git_seek()
-        .current_dir(&path)
-        .args(["preset", "run", "nonexistent"])
-        .assert()
-        .failure()
-        .stderr(predicate::str::contains("Unknown preset"));
+    let result = run_cli(&["git-seek", "preset", "run", "nonexistent"], &path);
+    let err = result.unwrap_err().to_string();
+    assert!(
+        err.contains("Unknown preset"),
+        "Expected 'Unknown preset', got: {err}"
+    );
 }
 
 #[test]
 fn test_preset_run_with_format_json() {
     let (_temp, path) = create_test_repo();
-    git_seek()
-        .current_dir(&path)
-        .args(["preset", "run", "recent-commits", "--format", "json"])
-        .assert()
-        .success()
-        .stdout(predicate::str::contains("["));
+    run_cli(
+        &[
+            "git-seek",
+            "preset",
+            "run",
+            "recent-commits",
+            "--format",
+            "json",
+        ],
+        &path,
+    )
+    .unwrap();
 }

@@ -9,6 +9,10 @@ homepage = "https://github.com/starfy84/git-seek"
 keywords = ["git", "query", "graphql", "trustfall"]
 categories = ["command-line-utilities", "development-tools"]
 
+[lib]
+name = "git_seek"
+path = "src/lib.rs"
+
 [[bin]]
 name = "git-seek"
 path = "src/main.rs"
@@ -26,6 +30,7 @@ trustfall = "0.8"
 trustfall_git_adapter = { version = "0.1.0", path = "../trustfall_git_adapter" }
 
 [dev-dependencies]
-assert_cmd = "2.1"
-predicates = "3.1"
+anyhow = "1.0.102"
+clap = { version = "4.5.60", features = ["derive"] }
+git2 = { version = "0.20", default-features = false }
 tempfile = "3.25"
