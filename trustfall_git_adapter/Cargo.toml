@@ -10,7 +10,7 @@ keywords = ["git", "trustfall", "adapter", "query"]
 categories = ["api-bindings", "development-tools"]
 
 [dependencies.git2]
-version = "0.20"
+version = "0.21"
 default-features = false
 
 [dependencies]
