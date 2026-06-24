@@ -56,6 +56,7 @@ pub(super) fn resolve_repository_edge<'a, V: AsVertex<Vertex<'a>> + 'a>(
                     let tags: Vec<_> = tag_names
                         .iter()
                         .flatten()
+                        .flatten()
                         .filter_map(|name| {
                             let refname = format!("refs/tags/{}", name);
                             let reference = adapter.git2_repo.find_reference(&refname).ok()?;
@@ -63,13 +64,14 @@ pub(super) fn resolve_repository_edge<'a, V: AsVertex<Vertex<'a>> + 'a>(
                             // Try to peel to a tag object (annotated tag)
                             let (target_oid, message, tagger_name, tagger_email) =
                                 if let Ok(tag_obj) = reference.peel_to_tag() {
-                                    let msg = tag_obj.message().map(|m| m.to_string());
+                                    let msg =
+                                        tag_obj.message().ok().flatten().map(|m| m.to_string());
                                     let t_name = tag_obj
                                         .tagger()
-                                        .and_then(|t| t.name().map(|n| n.to_string()));
+                                        .and_then(|t| t.name().ok().map(|n| n.to_string()));
                                     let t_email = tag_obj
                                         .tagger()
-                                        .and_then(|t| t.email().map(|e| e.to_string()));
+                                        .and_then(|t| t.email().ok().map(|e| e.to_string()));
                                     let oid = tag_obj
                                         .target()
                                         .ok()
