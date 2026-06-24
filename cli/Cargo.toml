@@ -18,7 +18,7 @@ name = "git-seek"
 path = "src/main.rs"
 
 [dependencies.git2]
-version = "0.20"
+version = "0.21"
 default-features = false
 
 [dependencies]
@@ -32,5 +32,5 @@ trustfall_git_adapter = { version = "0.1.0", path = "../trustfall_git_adapter" }
 [dev-dependencies]
 anyhow = "1.0.102"
 clap = { version = "4.6.1", features = ["derive"] }
-git2 = { version = "0.20", default-features = false }
+git2 = { version = "0.21", default-features = false }
 tempfile = "3.27"

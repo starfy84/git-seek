@@ -41,7 +41,7 @@ impl<'a> Adapter<'a> for &'a GitAdapter<'a> {
         match edge_name.as_ref() {
             "repository" => {
                 let repo_name = match self.git2_repo.find_remote("origin") {
-                    Ok(remote) => remote.url().and_then(|url| {
+                    Ok(remote) => remote.url().ok().and_then(|url| {
                         url.trim_end_matches(".git")
                             .rsplit('/')
                             .next()
