@@ -1,3 +1,10 @@
+## [1.10.1](https://github.com/starfy84/git-seek/compare/v1.10.0...v1.10.1) (2026-06-24)
+
+
+### Bug Fixes
+
+* migrate adapter to git2 0.21 string-return API ([367e687](https://github.com/starfy84/git-seek/commit/367e6875ea30fd8af1bac4aa4bc8e0a3db0959d8))
+
 # [1.10.0](https://github.com/starfy84/git-seek/compare/v1.9.0...v1.10.0) (2026-02-28)
 
 
