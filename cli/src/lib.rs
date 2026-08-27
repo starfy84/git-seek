@@ -169,7 +169,7 @@ fn execute_and_output(
             }
             let columns: Vec<String> = rows[0].keys().map(|k| k.to_string()).collect();
             let mut table = Table::new();
-            table.load_preset(UTF8_FULL).set_header(&columns);
+            table.load_style(UTF8_FULL).set_header(&columns);
             for row in &rows {
                 let row_values = columns.iter().map(|col| match row.get(col.as_str()) {
                     Some(value) => format_trustfall_value_for_table(value),
@@ -193,7 +193,7 @@ fn run_preset(adapter: &GitAdapter<'_>, action: PresetAction) -> anyhow::Result<
         PresetAction::List => {
             let mut table = Table::new();
             table
-                .load_preset(UTF8_FULL)
+                .load_style(UTF8_FULL)
                 .set_header(vec!["Name", "Description", "Parameters"]);
 
             for preset in presets::all_presets() {
