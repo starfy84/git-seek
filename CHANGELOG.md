@@ -1,3 +1,10 @@
+## [1.10.2](https://github.com/starfy84/git-seek/compare/v1.10.1...v1.10.2) (2026-08-27)
+
+
+### Bug Fixes
+
+* update comfy-table API from load_preset to load_style for v8.0.0 ([96a1902](https://github.com/starfy84/git-seek/commit/96a1902d3a6dfece5bc8629e4e92ad77fd14aa35))
+
 ## [1.10.1](https://github.com/starfy84/git-seek/compare/v1.10.0...v1.10.1) (2026-06-24)
 
 
